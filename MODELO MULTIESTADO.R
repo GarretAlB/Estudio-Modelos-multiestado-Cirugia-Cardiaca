@@ -13,8 +13,7 @@ aaa1 <- aaa1 %>% mutate(
       hmd_disf_elegida == "na0.2_tiempo_hasta" ~ na0.2_censura_tiempo_hasta,
       hmd_disf_elegida == "lac3mmol_tiempo_hasta" ~ lac3mmol_censura_tiempo_hasta,
       hmd_disf_elegida == "eb5_tiempo_hasta" ~ eb5_censura_tiempo_hasta))
-table(aaa1$hmd_disf_elegida)
-round(prop.table(table(aaa1$hmd_disf_elegida)), digits=4)
+table(aaa1$hmd_disf_elegida);round(prop.table(table(aaa1$hmd_disf_elegida)), digits=4)
 
 "DEFINIENDO SEGUNDO FRACASO ORGANICO"
 aaa1 <- aaa1 %>%mutate(
@@ -31,9 +30,9 @@ aaa1 <- aaa1 %>%mutate(
       organ_disf_elegida == "crx2_tiempo_hasta" ~ crx2_censura_tiempo_hasta,
       organ_disf_elegida == "plaq50000_tiempo_hasta" ~ plaq50000_censura_tiempo_hasta,
       organ_disf_elegida == "bb6_tiempo_hasta" ~ bb6_censura_tiempo_hasta))
-table(aaa1$organ_disf_elegida)
-round(prop.table(table(aaa1$organ_disf_elegida)), digits=4)
+table(aaa1$organ_disf_elegida);round(prop.table(table(aaa1$organ_disf_elegida)), digits=4)
 
+#Comprobación estados y transiciones
 aaa1 %>% 
   select(nhc,
          organ_disf_tiempo_hasta, 
@@ -65,6 +64,43 @@ aaa1 %>% # Seleccionar y mostrar las primeras filas
   filter(hmd_disf_censura_tiempo_hasta==1 & date_icu_discharge_censura_tiempo_hasta==0) 
 #solo hubo un paciente que hizo fracaso organico antes que hemodinamico
 
+aaa1 %>% # Seleccionar y mostrar las primeras filas
+  select(nhc,
+         organ_disf_tiempo_hasta, 
+         organ_disf_elegida, 
+         organ_disf_censura_tiempo_hasta, 
+         hmd_disf_tiempo_hasta, 
+         hmd_disf_elegida, 
+         hmd_disf_censura_tiempo_hasta,
+         date_icu_discharge_tiempo_hasta,
+         date_icu_discharge_censura_tiempo_hasta,
+         date_death_censura_tiempo_hasta,
+         date_death_tiempo_hasta,
+         reingreso_censura_tiempo_hasta,
+         reingreso_tiempo_hasta) %>% 
+  filter(reingreso_censura_tiempo_hasta==1) %>% 
+  filter(reingreso_tiempo_hasta<hmd_disf_tiempo_hasta | reingreso_tiempo_hasta<organ_disf_tiempo_hasta)
+
+library(dplyr)
+
+confirmacion <- aaa1 %>%
+  # Filtramos solo los que tuvieron reingreso real
+  filter(reingreso_censura_tiempo_hasta == 1) %>%
+  # Creamos banderas lógicas para verificar la secuencia
+  mutate(
+    reingreso_post_hmd = reingreso_tiempo_hasta > hmd_disf_tiempo_hasta,
+    reingreso_post_organ = reingreso_tiempo_hasta > organ_disf_tiempo_hasta
+  )
+
+# Resumen de la cronología
+confirmacion %>%
+  summarise(
+    total_reingresos = n(),
+    despues_de_hmd = sum(reingreso_post_hmd, na.rm = TRUE),
+    despues_de_organ = sum(reingreso_post_organ, na.rm = TRUE)
+  )
+#Tfallo < Treingreso
+
 aaa1 %>% # Seleccionar datos con evento y causa del evento
   select(organ_disf_tiempo_hasta, organ_disf_elegida, organ_disf_censura_tiempo_hasta)  %>% 
   group_by(organ_disf_elegida) %>% 
@@ -84,29 +120,6 @@ transMat(
     "organ_disf",
     "discharge",
     "death"))->tmat1
-
-#### Recod variables#####
-as.numeric(aaa1$charlson)->aaa1$charlson
-as.numeric(aaa1$cfs)->aaa1$cfs
-as.numeric(aaa1$nyha)->aaa1$nyha
-aaa1 %>% mutate(
-    hf_recat  = factor(ifelse(hf  == "no_hf",  "no_hf",  "yes_hf")),
-    dm_recat  = factor(ifelse(dm  == "no_dm",  "no_dm",  "yes_dm")),
-    smoker_recat = factor(ifelse(smoker == "smoker", "smoker", "no_smoker")),
-    ic_recat  = factor(ifelse(ic  == "no_ic",  "no_ic",  "yes_ic")),
-    lvs_qx_recat = factor(ifelse(lvs_qx == "no_lvs", "no_lvs", "yes_lvs")),
-    time_of_hs_recat = factor(ifelse(time_of_hs == "elective","elective", "urgent_or_emergent")),
-    cardioplegic_sol_recat = factor(case_when(
-      cardioplegic_sol == "sanguinea"                        ~ "sanguinea",
-      cardioplegic_sol %in% c("nido", "buckberg", "saline")  ~ "saline",
-      TRUE                                                   ~ "no_especificada")),
-    cannulation_type_art_recat = factor(case_when(
-      cannulation_type_art == "aortic"                       ~ "central",
-      cannulation_type_art %in% c("axilar", "femoral")       ~ "periferic",
-      TRUE                                                   ~ "other")),
-    lvad_recat = factor(case_when(
-      lvad_pre == "iabp" | lvad_ad == "iabp" ~ "iabp",
-      TRUE                                   ~ "no_iabp"), levels = c("no_iabp","iabp"))) -> aaa1
 
 #Covariables del modelo
 aaa1 %>%
@@ -192,7 +205,6 @@ head(pt_ci[, c("time", "pstate1", "lower1", "upper1",
                "pstate3", "lower3", "upper3",
                "pstate4", "lower4", "upper4",
                "pstate5", "lower5", "upper5")])
-
 pt_ci_2 <- function(pt_object, tiempo_horas) {
   # Nombres clínicos de los estados
   nombres_estados <- c("ICU", "hmd_disf", "organ_disf", "discharge", "death")
@@ -248,7 +260,6 @@ seleccion[, c("time",
               "pstate3", "lower3", "upper3",
               "pstate4", "lower4", "upper4",
               "pstate5", "lower5", "upper5")] # Mostrar resultados con IC
-
 
 table(msebmt1$trans)  # Número de observaciones por transición
 table(msebmt1$from)   # Estado de origen de las transiciones
@@ -317,8 +328,7 @@ write_xlsx(
     Fallo_Hemodinamico = tabla_hmd_disf,
     Fallo_Organico = tabla_organ_disf
   ),
-  path = "resumen_truncado_resultados.xlsx"
-)
+  path = "resumen_truncado_resultados.xlsx")
 
 
 
@@ -853,17 +863,12 @@ summary(modelo_final)
 
 ---------------------------------------
 #######Testeo PROPIEDAD MARJOV#####
-"A. Dependencia del tiempo en estado (time_in_state)
-B. Covariables de historia clínica previa
-C. Visualización de riesgos acumulados (msfit)"
-
-  msebmt1$Tstop <- ifelse(msebmt1$Tstop <= msebmt1$Tstart, msebmt1$Tstart + 1e-5, msebmt1$Tstop)
+ msebmt1$Tstop <- ifelse(msebmt1$Tstop <= msebmt1$Tstart, msebmt1$Tstart + 1e-5, msebmt1$Tstop)
 
 #Paso 1 Variable tiempo dependiente entrada estado
 #Añadir tiempo desde entrada al estado anterior. Tstart es el tiempo de entrada al estado actual.
 #Al asignar Tstart a time_in_state, “El tiempo que el paciente ha estado en este estado es igual al tiempo desde que entró en él.”
 #cada fila representa una transición potencial, y Tstart marca el inicio del intervalo de riesgo para esa transición.
-#Es una forma estándar de evaluar el supuesto Markoviano.No requiere ajustes adicionales salvo que quieras hacer un análisis más específico por tipo de transición.
 msebmt1$time_in_state <- msebmt1$Tstart
 
 # Crear fórmula del modelo final
@@ -874,8 +879,7 @@ formula_markov_final <- as.formula(
                 "pam_ad.3", "time_of_hs_recaturgent_or_emergent.3", "hematíes_post.4",
                 "vis_ad.4", "rvef_change_pre_ad.4", "pctspcts.5", "is_ad.5",
                 "smoker_recatsmoker.5", "time_of_hs_recaturgent_or_emergent.5",
-                "pam_ad.6", "hematíes_post.6"), collapse = " + "))
-)
+                "pam_ad.6", "hematíes_post.6"), collapse = " + ")))
 # Crear fórmula del modelo semi-Markov
 formula_semi_markov_final <- update(formula_markov_final, . ~ . + time_in_state)
 # Ajustar modelos
@@ -883,7 +887,6 @@ cox_markov_final_nocluster <- coxph(formula_markov_final, data = msebmt1, method
 cox_semi_markov_final_nocluster <- coxph(formula_semi_markov_final, data = msebmt1, method = "breslow")
 # Comparar modelos
 anova(cox_markov_final, cox_semi_markov_final) #no signficativo cumple supuesto markoviano
-
 
 #Paso 2: Incluir covariables de historia previa
 #1.Creamos formula extendida
@@ -901,7 +904,7 @@ formula_historia <- as.formula(
 modelo_historia <- coxph(formula_historia, data = msebmt1, method = "breslow")
 cox_markov_final_nocluster$n; modelo_historia$n #difieren en numero observaciones
 
-# Crear vector con todas las variables implicadas
+#Crear vector con todas las variables implicadas
 vars_modelo_completo <- c("Tstart", "Tstop", "status", "trans", 
                           "time_of_hs_recaturgent_or_emergent.1", "is_ad.1", "age.1", "pvc_ad.1",
                           "age.2", "lvef_change_pre_ad.2", "ao_cross_clamp_time.3", "vf_post.3",
@@ -910,17 +913,16 @@ vars_modelo_completo <- c("Tstart", "Tstop", "status", "trans",
                           "smoker_recatsmoker.5", "time_of_hs_recaturgent_or_emergent.5",
                           "pam_ad.6", "hematíes_post.6", covariables_historia)
 
-# Filtrar observaciones completas
+#Filtrar observaciones completas
 msebmt1_completo <- msebmt1[complete.cases(msebmt1[, vars_modelo_completo]), ]
-# Ajustar modelos sobre el mismo subconjunto
+#Ajustar modelos sobre el mismo subconjunto
 cox_markov_final_clean <- coxph(formula_markov_final, data = msebmt1_completo, method = "breslow")
 modelo_historia_clean <- coxph(formula_historia, data = msebmt1_completo, method = "breslow")
-# Comparar modelos
+#Comparar modelos
 anova(cox_markov_final_clean, modelo_historia_clean)
+
 #p<0.1 no hay evidencia estadísticamente significativa (p < 0.05) de que las covariables de historia previa mejoren el modelo
 #o se rechaza el supuesto Markoviano: el riesgo de transición no depende significativamente del historial clínico previo, 
-
-
 
 ------------------------------------------------------------
 #1. Ajustamos un modelo multiestado Markoviano con tus covariables clínicas, usando coxph() y strata(trans). sin cluster para compatibilidad con msfit
@@ -981,7 +983,35 @@ termplot(modelo_final ,terms = "pspline(pvc_ad.1)")
 
 #pam_pre.3 es tiempo dependiente (viola moderadamente supuesto proporcionalidad) pero con tt() no cambia La violación del supuesto de proporcionalidad no es grave (como en tu caso: solo pam_pre.3, p=0.009, y el test global es aceptable),
 #Y es confusora, como indicas (es decir, su exclusión afecta el estimador de otras variables),
-# Modelo sin pam_pre.3
+
+########## Modelo sin pvc ##############
+
+# Modelo completo (con PVC) 
+modelo_completo <- coxph(
+  Surv(Tstart, Tstop, status) ~ 
+    time_of_hs_recaturgent_or_emergent.1 + 
+    is_ad.1 + 
+    age.1 + 
+    pvc_ad.1 + 
+    age.2 + 
+    lvef_change_pre_ad.2 + 
+    ao_cross_clamp_time.3 + 
+    vf_post.3 + 
+    pam_ad.3 + 
+    time_of_hs_recaturgent_or_emergent.3 + 
+    hematíes_post.4 + 
+    vis_ad.4 + 
+    rvef_change_pre_ad.4 + 
+    pctspcts.5 + 
+    is_ad.5 + 
+    smoker_recatsmoker.5 + 
+    time_of_hs_recaturgent_or_emergent.5 + 
+    pam_ad.6 + 
+    hematíes_post.6 +
+    strata(trans),
+  data = msebmt1,
+  cluster = id)
+# Modelo sin PVC 
 modelo_sin_pvc <- coxph(
   Surv(Tstart, Tstop, status) ~ 
     time_of_hs_recaturgent_or_emergent.1 + 
@@ -1001,20 +1031,38 @@ modelo_sin_pvc <- coxph(
     smoker_recatsmoker.5 + 
     time_of_hs_recaturgent_or_emergent.5 + 
     pam_ad.6 + 
-    hematíes_post.6 + #nueva
-    + strata(trans),
+    hematíes_post.6 +
+    strata(trans),
   data = msebmt1,
   cluster = id)
-summary(modelo_sin_pvc)
-# Extraer coeficientes de ambos modelos
-coef_completo <- coef(modelo_final)  #  modelo original con pam_pre.3
-coef_sin_pam <- coef(modelo_sin_pam_pre)
-# Comparar el cambio porcentual
-cambio_pct <- (coef_sin_pam - coef_completo[names(coef_sin_pam)]) / coef_completo[names(coef_sin_pam)] * 100
+
+
+# EXTRAER COEFICIENTES
+coef_full <- coef(modelo_completo)
+coef_reduced <- coef(modelo_sin_pvc)
+# Alinear nombres comunes
+common_vars <- intersect(names(coef_full), names(coef_reduced))
+
+coef_full_aligned <- coef_full[common_vars]
+coef_reduced_aligned <- coef_reduced[common_vars]
+
+# CAMBIO PORCENTUAL EN COEFICIENTES
+cambio_pct <- (coef_reduced_aligned - coef_full_aligned) /
+  coef_full_aligned * 100
 round(cambio_pct, 1)
 
+#Comparar errores estándar robustos
+se_full <- sqrt(diag(vcov(modelo_completo)))
+se_reduced <- sqrt(diag(vcov(modelo_sin_pvc)))
+se_full_aligned <- se_full[common_vars]
+se_reduced_aligned <- se_reduced[common_vars]
+cambio_se_pct <- (se_reduced_aligned - se_full_aligned) /
+  se_full_aligned * 100
+round(cambio_se_pct, 1)
 
-
+#
+modelo_completo$concordance
+modelo_sin_pvc$concordance
 
 
 #####LIN + Dx + PH####
@@ -1314,9 +1362,7 @@ ggplot(df_long, aes(x = Transicion, y = C_index, color = Metodo, shape = Metodo)
   labs(title = "Intervalos de confianza del C-index por transición",
        x = "Transición", y = "C-index") +
   theme_minimal()
-
-
-
+      
 # Crear un nuevo paciente
 new_patient <- data.frame(
   Tstart = 0,
@@ -1345,11 +1391,6 @@ new_patient <- data.frame(
 
 # Predecir el riesgo relativo (riesgo instantáneo comparado)
 predict(modelo_tt, newdata = new_patient, type = "risk")
-
-
-
-
-
 
 ###FOREST PLOt#####
 # Extraemos los coeficientes (log HR), intervalos de confianza y nombres de las variables
@@ -1386,6 +1427,3 @@ ggplot(df_forest, aes(x = HR, y = term)) +
         axis.text = element_text(size = 12),  # Aumentar tamaño del texto en ejes
         axis.title = element_text(size = 14)) +  # Aumentar tamaño de los títulos de los ejes
   xlim(0, 41)  # Ajustar el eje X para que vaya de 0 a 15
-
-
-
