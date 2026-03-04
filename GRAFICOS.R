@@ -72,7 +72,7 @@ g1 <- plot(pt,
                     labels = c("UCI", 
                                "Fallo hemodinámico", 
                                "2º fallo orgánico", 
-                               "Alta hospitalaria", 
+                               "Alta de UCI", 
                                "Muerte"))+ 
   guides(fill = guide_legend(title = "Estado"))
 g1
@@ -100,7 +100,7 @@ g2 <- plot(pt,
                     name   = "Estado",
                     labels = c("Fallo hemodinámico", 
                                "2º fallo orgánico", 
-                               "Alta hospitalaria", 
+                               "Alta de UCI", 
                                "Muerte"))+
 guides(fill = guide_legend(title = "Estado")) 
 g2
@@ -128,7 +128,7 @@ g3 <- plot(pt,
   scale_fill_manual(values = colores3,
                     name   = "Estado",
                     labels = c("2º fallo orgánico", 
-                               "Alta hospitalaria", 
+                               "Alta de UCI", 
                                "Muerte"))+
   guides(fill = guide_legend(title = "Estado")) 
 g3
@@ -136,10 +136,17 @@ g3
 combo <- (g1 / g2 / g3) + plot_layout(ncol = 1)  # Sin guides = "collect"
 final_plot <- combo + 
   plot_annotation(
-    title = "Riesgo acumulado de transición entre estados clínicos",
     theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
   )
 final_plot
+
+## Aplica esto a g1, g2 y g3
+g1 <- g1 + ylab(NULL)
+g2 <- g2 + ylab(NULL)
+g3 <- g3 + ylab(NULL)
+
+final_plot
+
 
 ####ELOS funcion####
 # Calcular tiempo esperado de estancia e IC en cada estado desde t=0
@@ -625,4 +632,3 @@ plot(msf_final, from=2, type="filled",
   ggtitle("Predicción de la probabilidad de cambiar de estado desde disfunción hemodinamica" ) +
   theme(axis.title = element_text(face = "bold", size = 14),
         plot.title = element_text(hjust = 0.5,face = "bold", size = 14))
-
