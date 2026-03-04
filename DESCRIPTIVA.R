@@ -1,4 +1,3 @@
-
 ############# ESTADISTICA DESCRIPTIVA ################
 #Función normalidad
 plot_distribution <- function(x, variable_name = "variable estudiada") {
@@ -30,11 +29,11 @@ plot_distribution <- function(x, variable_name = "variable estudiada") {
   # Devolver los gráficos combinados
   return(combined_plot)
 }
-#plot_distribution(aaa1$charlson)
+plot_distribution(aaa1$charlson)
 
 #Descriptivas cualitativas
 calculate_percentages <- function(x) {round(prop.table(table(x)), 2)}
-aaa1%>%select_if(is.factor) %>%select(-nombre_apellidos) %>% map(calculate_percentages)
+aaa1%>%select(where(is.factor)) %>%select(-nombre_apellidos) %>% map(calculate_percentages)
 theme_gtsummary_journal(journal = "jama")
 
 #Descriptivas cuantitativas
@@ -42,7 +41,9 @@ aaa1 %>%select_if(is.numeric) %>% {list(summary = summary(.), skim = skim(.))} %
 
 #Comorbilidades basales cuant + cual
 aaa1 %>%
-  select(sex, age, weight, size, imc, hta, dl, smoker, dm, ic, pcts, pvd, af, hf, nyha, estadio_erc, copd, osas, antithrombotic, charlson, cfs) %>%
+  select(sex, age, weight, size, imc, hta, dl, smoker, dm, ic, pcts, pvd, af, hf, nyha, estadio_erc, 
+         copd, osas, antithrombotic, charlson, cfs,
+         hf_recat, dm_recat, smoker_recat, ic_recat) %>%
   rename_with(toupper) %>%
   tbl_summary(statistic = list(all_categorical() ~ "{n} ({p}%)")) %>%
   modify_header(label ~ "**Variables**") %>%
@@ -57,7 +58,6 @@ nyha_percent <- aaa1 %>%
   group_by(nyha) %>%
   summarise(count = n()) %>%
   mutate(percentage = count / sum(count) * 100)
-
 # Crear el gráfico de barras
 ggplot(nyha_percent, aes(x = nyha, y = percentage, fill = "red")) +
   geom_bar(stat = "identity") +
@@ -72,11 +72,11 @@ ggplot(nyha_percent, aes(x = nyha, y = percentage, fill = "red")) +
     plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
     legend.position = "none")
 
-
 #Situación quirurgica             
 aaa1 %>% select(mortalidad_predicha, weight_of_procedure, time_of_hs, endocarditis,hs_duration, 
                hs_type_cabg, hs_type_valvular,hs_type_ta,hs_type_avr,hs_type_mvr,cannulation_type_art, 
-               cannulation_type_v,cardioplegic_adm, cardioplegic_sol,hypothermia,cbp_time, ao_cross_clamp_time) %>% 
+               cannulation_type_v,cardioplegic_adm, cardioplegic_sol,cbp_time, 
+               ao_cross_clamp_time,time_of_hs_recat) %>% 
   rename_with(toupper) %>%
   tbl_summary(statistic = list(all_categorical() ~ "{n} ({p}%)")) %>%
   modify_header(label ~ "**Variables**") %>%
@@ -271,10 +271,5 @@ aaa1 %>% filter(date_extubation_censura_tiempo_hasta==1) %>% skim(date_extubatio
 aaa1 %>% filter(date_death_censura_tiempo_hasta==0) %>%  skim(date_icu_discharge_tiempo_hasta) #estancia mediana
 aaa1 %>% filter(date_death_censura_tiempo_hasta==0) %>%  skim(date_hospital_discharge_tiempo_hasta)
 
-
-
-
-
-
-
-
+#Ver los reingresos
+aaa1 %>% filter(!is.na(reingreso)) %>% view()
